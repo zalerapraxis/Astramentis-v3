@@ -104,7 +104,7 @@ namespace Astramentis.Services.MarketServices
                     $"{_customMarketApiUrl}/market/scripts/logincmd.php?server={server}"
                         .GetStringAsync();
 
-            if (response.Contains("1"))
+            if (response.Equals("1"))
                 return true;
             else
                 return false;
