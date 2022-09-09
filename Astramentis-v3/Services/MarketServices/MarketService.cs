@@ -363,6 +363,11 @@ namespace Astramentis.Services
         {
             List<MarketItemCrossWorldOrderModel> PurchaseOrderList = new List<MarketItemCrossWorldOrderModel>();
 
+            // ============== TEST ==============
+            var mpol = new List<List<List<MarketItemCrossWorldOrderModel>>>(); // what the fuck
+            var pol = new List<MarketItemCrossWorldOrderModel>();
+            // ============== END TEST ==============
+
             // iterate through each item
             var tasks = Task.Run(() => Parallel.ForEach(inputs, parallelOptions, input =>
             {
@@ -379,6 +384,7 @@ namespace Astramentis.Services
 
                 // put together a list of each market listing
                 var multiPartOrderList = new List<MarketItemCrossWorldOrderModel>();
+
 
                 foreach (var listing in listings.Take(numOfListingsToTake))
                 {
@@ -400,9 +406,13 @@ namespace Astramentis.Services
                 // send our listings off to find what the most efficient set of listings to buy are
                 var efficientListings = GetMostEfficientPurchases(multiPartOrderList, input.NeededQuantity);
 
-                if (efficientListings != null)
-                    if (efficientListings.Any())
-                        PurchaseOrderList.AddRange(efficientListings);
+                //var efficientListingsFirst = efficientListings.FirstOrDefault();
+                PurchaseOrderList.AddRange(efficientListings.FirstOrDefault());
+
+                // ============== TEST ==============
+                mpol.Add(efficientListings);
+                // ============== END TEST ==============
+
 
                 multiPartOrderList.Clear();
             }));
@@ -411,7 +421,86 @@ namespace Astramentis.Services
 
             PurchaseOrderList = PurchaseOrderList.ToList();
 
-            return PurchaseOrderList;
+
+            // ============== TEST ==============
+            
+            /* 
+            foreach (var order in mpol)
+            {
+                var tempServerList = new List<string>();
+                foreach (var listing in order)
+                {
+                    if (!tempServerList.Contains(listing.Server))
+                        tempServerList.Add(listing.Server);
+                }
+                if (serverCount > tempServerList.Count)
+                {
+                    pol.AddRange(order);
+                    Console.WriteLine($"adding with servercount {serverCount}");
+                    serverCount = tempServerList.Count;
+                }
+            }
+            */
+
+            foreach (var idk in mpol)
+            {
+                var serverCount = 9; // only 8 servers in a datacenter, we will never go above this value and we aim to reduce it down with the below logic
+                foreach (var order in idk)
+                {
+                    var tempServerList = new List<string>();
+                    foreach (var listing in order)
+                    {
+                        if (!tempServerList.Contains(listing.Server))
+                            tempServerList.Add(listing.Server);
+                    }
+                    if (serverCount > tempServerList.Count)
+                    {
+                        pol.AddRange(order);
+                        Console.WriteLine($"adding with servercount {serverCount}");
+                        serverCount = tempServerList.Count;
+                    }
+                }
+            }
+
+            var efficientLowestCost = PurchaseOrderList; // regular command output
+            var efficientFewerJumps = pol; // hypothetically filtered to reduce number of server jumps
+
+            // calculate total cost of the lowest-cost output
+            int totalCostLowestCost = 0;
+            foreach (var list in efficientLowestCost)
+                totalCostLowestCost += (list.Quantity * list.Price);
+
+            // calculate total cost of the fewer jumps output
+            int totalCostFewestJumps = 0;
+            foreach (var list in efficientFewerJumps)
+                totalCostFewestJumps += (list.Quantity * list.Price);
+
+            if (efficientFewerJumps == null || !efficientFewerJumps.Any() || efficientLowestCost == null || !efficientLowestCost.Any())
+                return PurchaseOrderList;
+
+            // get higher & lower values
+            var highercost = Math.Max(totalCostLowestCost, totalCostFewestJumps);
+            var lowercost = Math.Min(totalCostLowestCost, totalCostFewestJumps);
+
+            // get the diff as a percent
+            var differencePercent = Math.Round(((decimal) highercost - (decimal) lowercost) / highercost * 100);
+            // get the diff as an absolute value
+            var differenceAbsolute = highercost - lowercost;
+
+            if (differencePercent < 20 || differenceAbsolute < 100000)
+            {
+                Console.WriteLine($"Using fewest jumps order - Diff percent {differencePercent} - Diff absolute {differenceAbsolute} - purchases {efficientFewerJumps.Count}");
+                return efficientFewerJumps;
+            }
+            else
+            {
+                Console.WriteLine($"Using lowest cost order - Diff percent {differencePercent} - Diff absolute {differenceAbsolute} - purchases {efficientLowestCost.Count}");
+                return efficientLowestCost;
+            }
+
+            // ============== END TEST ==============
+
+            //return PurchaseOrderList;
         }
 
         // for use with analysis commands
@@ -471,11 +560,11 @@ namespace Astramentis.Services
         }
 
         // this is used to determine the most efficient order of buying items cross-world
-        private static List<MarketItemCrossWorldOrderModel> GetMostEfficientPurchases(List<MarketItemCrossWorldOrderModel> listings, int needed)
+        private static List<List<MarketItemCrossWorldOrderModel>> GetMostEfficientPurchases(List<MarketItemCrossWorldOrderModel> listings, int needed)
         {
             var helper = new MarketOrderHelper();
             var results = helper.SumUp(listings, needed);
-            var resultsOrdered = results.OrderBy(x => x.Sum(y => y.Price * y.Quantity)).ToList().FirstOrDefault();
+            var resultsOrdered = results.OrderBy(x => x.Sum(y => y.Price * y.Quantity)).Take(10).ToList();
 
             return resultsOrdered;
         }
