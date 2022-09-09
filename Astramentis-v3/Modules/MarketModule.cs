@@ -1198,7 +1198,7 @@ namespace Astramentis.Modules
         {
             string apiStatusHumanResponse = "";
 
-            var discordBotOwnerId = ulong.Parse(Config["discordBotOwnerId"]);
+            //var discordBotOwnerId = ulong.Parse(Config["discordBotOwnerId"]);
 
             if (status == CustomApiStatus.NotLoggedIn)
                 apiStatusHumanResponse = $"Not logged in to Companion API. I'll be trying to log in soon.";
@@ -1207,7 +1207,7 @@ namespace Astramentis.Modules
             if (status == CustomApiStatus.AccessDenied)
                 apiStatusHumanResponse = $"Access denied. I'm working on it.";
             if (status == CustomApiStatus.ServiceUnavailable || status == CustomApiStatus.APIFailure)
-                apiStatusHumanResponse = $"Something broke somewhere. I'm working on it.";
+                apiStatusHumanResponse = $"Something broke somewhere. Possibly either my API is down or SE is performing maintenance.";
 
             return apiStatusHumanResponse;
         }
